@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "Si vous utilisez ce dépôt, merci de le citer ainsi."
+title: "photogranulo-bench"
+type: software
+authors:
+  - name: "À compléter"
+references:
+  - type: dataset
+    title: "Photogranulometry - Dataset of soil images with corresponding particle size distributions"
+    doi: "10.20383/103.01316"
+    authors:
+      - family-names: "Plante St-Cyr"
+        given-names: "Thomas"
+      - family-names: "Duhaime"
+        given-names: "François"
+      - family-names: "Dubé"
+        given-names: "Jean-Sébastien"
+      - family-names: "Grenier"
+        given-names: "Simon"

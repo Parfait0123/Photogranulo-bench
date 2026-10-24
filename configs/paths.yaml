@@ -1,0 +1,20 @@
+# Chemins par environnement. Le code ne contient aucun chemin en dur :
+# choisir le profil avec la variable PHOTOGRANULO_ENV (défaut : local).
+# Chemins relatifs = relatifs à la racine du dépôt.
+# Les profils drive, kaggle et nebius sont des PROPOSITIONS à ajuster le moment venu.
+profiles:
+  local:
+    data_root: data
+    results_root: results
+  drive:
+    data_root: /content/drive/MyDrive/photogranulo/data   # à ajuster
+    results_root: /content/drive/MyDrive/photogranulo/results
+    extra: [checkpoints, backups]
+  kaggle:
+    data_root: /kaggle/working/data
+    results_root: /kaggle/working/results
+    overrides:
+      raw: /kaggle/input                                   # à ajuster : nom du dataset Kaggle
+  nebius:
+    data_root: TODO
+    results_root: TODO

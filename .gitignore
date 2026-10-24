@@ -1,0 +1,19 @@
+# Données et résultats : jamais dans Git.
+# (Un motif "data/*" ne permettrait pas de ré-inclure data/raw/.gitkeep : le dossier parent serait exclu.)
+data/**
+!data/**/
+!data/README.md
+!data/**/.gitkeep
+results/**
+!results/**/
+!results/**/.gitkeep
+
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+.env
+paper/**/*.aux
+paper/**/*.log
+paper/**/*.out
