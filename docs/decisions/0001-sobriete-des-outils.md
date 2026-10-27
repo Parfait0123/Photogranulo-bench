@@ -6,3 +6,6 @@
   ASReview seulement si la revue ramène plusieurs centaines d'articles).
 - Conséquence : le suivi des données repose sur `data_manifests/` et celui des expériences
   sur `results/runs/` (un dossier par exécution : configuration, graine, hash Git).
+
+- Date : 2026-10-27
+- Décision : Utiliser Google drive comme support de tout le travail de la première phase ( Code + Donnéees directement)

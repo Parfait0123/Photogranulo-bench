@@ -14,8 +14,7 @@ contrôle de fuite, contrôle de monotonie des courbes. Les autres modules sont 
 ## Démarrage
 
 ```bash
-uv sync
-uv run pytest
+make install
 ```
 
 Commiter `pyproject.toml` et `uv.lock`.

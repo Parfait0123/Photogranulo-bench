@@ -7,7 +7,7 @@
 | DOI | 10.20383/103.01316 |
 | Article de données | arXiv 2506.17469 (GeoManitoba 2025) |
 | Mis à disposition | 20 juin 2025 |
-| Licence / conditions | **À LIRE sur la page FRDR avant toute redistribution (Kaggle)** |
+| Licence / conditions |Creative Commons Attribution 4.0 International (CC BY 4.0) https://creativecommons.org/licenses/by/4.0/ |
 | Date de téléchargement | |
 | Méthode | Globus (collection source : à noter) |
 | Taille réelle mesurée | |
