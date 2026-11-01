@@ -1,0 +1,7 @@
+# Source du jeu Photogranulometry sur FRDR (utilisée par scripts/download.py).
+doi: 10.20383/103.01316
+page: https://www.frdr-dfdr.ca/repo/dataset/bf4bde7e-e966-4ed2-85e1-4638c72c48e0
+globus:
+  origin_id: f163c1b3-9c88-42f6-a7bb-5839ed6c4063   
+  origin_path: /1/published/publication_1311/submitted_data
+  client_id: a9a51f01-af7e-4c2d-8750-bbf5199ab3a2   # application Globus de type "Native app" (gratuit : app.globus.org > Settings > Developers)

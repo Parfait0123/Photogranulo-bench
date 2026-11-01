@@ -16,10 +16,20 @@ contrôle de fuite, contrôle de monotonie des courbes. Les autres modules sont 
 ```bash
 make install
 ```
-
 Commiter `pyproject.toml` et `uv.lock`.
 
+### Activer l'environnement 
+Ceci permet d'activer l'environemment et d'éviter de preceder les commandes python de uv run
+```bash
+ source .venv/bin/activate
+```
 ## Phase 1 : vérifier la copie brute
+
+Le télechargement du jeu de données se fait avec la commande suivante : 
+```bash
+python scripts/download.py get 
+```
+Pour accélerer letelechargement depuis globus, augmenter le nombre de flux directement dans le code de `scripts/download` (64 par défaut)
 
 Placer le jeu dans `data/raw/frdr/` (voir `data/README.md`), puis :
 

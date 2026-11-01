@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import yaml
@@ -17,11 +16,26 @@ def _resolve(value: str, base: Path) -> Path:
     return p if p.is_absolute() else (base / p)
 
 
+def _enabled_profile(profiles: dict, config: Path) -> str:
+    """Nom du seul profil marqué `enable: true` dans le fichier de chemins."""
+    enabled = [name for name, cfg in profiles.items() if cfg.get("enable", False)]
+    if len(enabled) != 1:
+        raise ValueError(
+            f"{config.name} : exactement un profil doit avoir `enable: true`, "
+            f"trouvé {len(enabled)} {enabled}"
+        )
+    return enabled[0]
+
+
 def load_paths(profile: str | None = None, config: Path | None = None) -> dict[str, Path]:
-    """Retourne les chemins du profil (argument, sinon $PHOTOGRANULO_ENV, sinon local)."""
+    """Retourne les chemins du profil activé (`enable: true`) dans paths.yaml.
+
+    Changer de machine ou de source = changer le profil activé dans paths.yaml, rien d'autre.
+    L'argument `profile` impose un profil précis (tests, option --profile des scripts).
+    """
     config = config or DEFAULT_CONFIG
-    profile = profile or os.environ.get("PHOTOGRANULO_ENV", "local")
     profiles = yaml.safe_load(config.read_text(encoding="utf-8"))["profiles"]
+    profile = profile or _enabled_profile(profiles, config)
     if profile not in profiles:
         raise KeyError(f"profil inconnu {profile!r} ; disponibles : {sorted(profiles)}")
     cfg = profiles[profile]

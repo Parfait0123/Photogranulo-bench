@@ -10,6 +10,7 @@ dependencies = [
     "openpyxl>=3",     # fichier Excel des courbes
     "pillow>=10",      # en-têtes d'images (audit)
     "globus-sdk>=3",   # téléchargement FRDR
+    "tqdm>=4",         # barre de progression du téléchargement
 ]
 
 [dependency-groups]

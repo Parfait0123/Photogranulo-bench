@@ -9,7 +9,7 @@ profiles:
     results_root: results
   drive:
     enable : true
-    data_root: /content/drive/MyDrive/photogranulo/data   # à ajuster
+    data_root: /content/drive/MyDrive/photogranulo/Photogranulo-bench/data   
     results_root: /content/drive/MyDrive/photogranulo/results
     extra: [checkpoints, backups]
   kaggle:

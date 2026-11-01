@@ -9,11 +9,11 @@
 | Mis à disposition | 20 juin 2025 |
 | Licence / conditions |Creative Commons Attribution 4.0 International (CC BY 4.0) https://creativecommons.org/licenses/by/4.0/ |
 | Date de téléchargement | |
-| Méthode | Globus (collection source : à noter) |
-| Taille réelle mesurée | |
+| Méthode | Globus via  HTTPS |
+| Taille réelle mesurée | 441.5 Go|
 | Nombre d'images réel | (annoncé : 12 714 dans l'article, 12 745 dans son résumé français) |
 | Manifeste | manifests/raw.csv |
-| Versions des outils | Python, photogran, globus-sdk : à noter |
+| Versions des outils | Python, photogran, globus-sdk  |
 
 ## À vérifier une fois les données présentes
 
