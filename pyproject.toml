@@ -11,6 +11,8 @@ dependencies = [
     "pillow>=10",      # en-têtes d'images (audit)
     "globus-sdk>=3",   # téléchargement FRDR
     "tqdm>=4",         # barre de progression du téléchargement
+    "ipykernel>=7.4.0",
+    "matplotlib>=3.11.2",
 ]
 
 [dependency-groups]

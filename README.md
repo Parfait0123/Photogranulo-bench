@@ -1,9 +1,9 @@
 # Photogranulo-bench
 
-Étude du jeu *Photogranulometry* (Plante St-Cyr et al., FRDR, DOI 10.20383/103.01316),
+Étude du jeu _Photogranulometry_ (Plante St-Cyr et al., FRDR, DOI 10.20383/103.01316),
 benchmark reproductible des approches de photogranulométrie, puis conception d'un modèle de
 prédiction de courbe granulométrique à partir d'images. Méthode : `docs/roadmap/` (cahier de recherche).
- 
+
 ## État
 
 L'arborescence complète existe. Le code écrit couvre la phase 1 et les garde-fous :
@@ -13,22 +13,41 @@ contrôle de fuite, contrôle de monotonie des courbes. Les autres modules sont 
 
 ## Démarrage
 
+Installer `make` et `uv` si cela n'est pas encore fait. (Chercher leurs correspondances pour linux)
+
+```bash
+winget install GnuWin32.Make
+winget install astral-sh.uv
+```
+
+Pour utiliser rclone(local)
+
+```bash
+rclone mount gdrive: Z: --vfs-cache-mode full
+```
+
 ```bash
 make install
 ```
+
 Commiter `pyproject.toml` et `uv.lock`.
 
-### Activer l'environnement 
+### Activer l'environnement
+
 Ceci permet d'activer l'environemment et d'éviter de preceder les commandes python de uv run
+
 ```bash
  source .venv/bin/activate
 ```
+
 ## Phase 1 : vérifier la copie brute
 
-Le télechargement du jeu de données se fait avec la commande suivante : 
+Le télechargement du jeu de données se fait avec la commande suivante :
+
 ```bash
-python scripts/download.py get 
+python scripts/download.py get
 ```
+
 Pour accélerer letelechargement depuis globus, augmenter le nombre de flux directement dans le code de `scripts/download` (64 par défaut)
 
 Placer le jeu dans `data/raw/frdr/` (voir `data/README.md`), puis :
@@ -162,4 +181,3 @@ photogranulo-bench/
     ├── benchmark/                   [vide] article de benchmark (après la phase 6)
     └── full_paper/                  [vide] article complet (après la phase 10)
 ```
- 

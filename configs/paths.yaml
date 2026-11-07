@@ -4,21 +4,22 @@
 # Les profils drive, kaggle et nebius sont des PROPOSITIONS à ajuster le moment venu.
 profiles:
   local:
-    enable : false
-    data_root: data
-    results_root: results
+    enable: true
+    data_root: Z:/photogranulo/Photogranulo-bench/data
+    results_root: Z:/photogranulo/Photogranulo-bench/results
+    extra: [checkpoints, backups]
   drive:
-    enable : true
-    data_root: /content/drive/MyDrive/photogranulo/Photogranulo-bench/data   
+    enable: false
+    data_root: /content/drive/MyDrive/photogranulo/Photogranulo-bench/data
     results_root: /content/drive/MyDrive/photogranulo/results
     extra: [checkpoints, backups]
   kaggle:
-    enable : false
+    enable: false
     data_root: /kaggle/working/data
     results_root: /kaggle/working/results
     overrides:
-      raw: /kaggle/input                                   # à ajuster : nom du dataset Kaggle
+      raw: /kaggle/input # à ajuster : nom du dataset Kaggle
   nebius:
-    enable : false
+    enable: false
     data_root: TODO
     results_root: TODO
