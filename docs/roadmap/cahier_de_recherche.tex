@@ -1,0 +1,429 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[french]{babel}
+\usepackage{palatino}                 % Palatino (URW Palladio) pour le texte, maths en Computer Modern
+\usepackage[margin=2.3cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{longtable,array,booktabs,tabularx}
+\usepackage{enumitem}
+\usepackage{indentfirst}
+\usepackage[colorlinks=true,linkcolor=black,citecolor=blue,urlcolor=black]{hyperref}
+
+\setlist[itemize]{label=\textbullet,itemsep=1pt,parsep=0pt,topsep=3pt}
+\setlist[enumerate]{itemsep=1pt,parsep=0pt,topsep=3pt}
+
+% Phase : titre en gras puis lignes « Étiquette | texte » avec retrait suspendu
+\newcommand{\phase}[2]{\par\bigskip\noindent\textbf{Phase #1 --- #2}\par\nopagebreak\smallskip}
+\newcommand{\champ}[1]{\par\noindent\hangindent=2.4cm\hangafter=1\hbox to 2.4cm{\textbf{#1}\hfil}\ignorespaces}
+
+% Bloc d'introduction en gras (section 1)
+\newcommand{\bloc}[1]{\par\medskip\noindent\textbf{#1}\ }
+
+% Axes : sous-titres non numérotés
+\renewcommand{\thesubsection}{}
+
+% Tableaux de questions : Réf. | Question | Statut
+\newenvironment{qtable}{%
+  \par\smallskip
+  \begin{longtable}{@{}>{\bfseries}p{1.0cm} p{12.3cm} p{1.5cm}@{}}
+  \toprule
+  \textbf{Réf.} & \textbf{Question de recherche} & \textbf{Statut}\\
+  \midrule
+  \endhead
+}{%
+  \bottomrule
+  \end{longtable}
+}
+
+\begin{document}
+
+\begin{center}
+{\LARGE Cahier de recherche}\\[8pt]
+{\large Photogranulométrie : étude du jeu de données \emph{Photogranulometry},\\
+benchmark et conception d'un modèle}\\[20pt]
+{\large Document de travail --- 21 octobre 2026}
+\end{center}
+\vspace{2pt}
+
+%--------------------------------------------------------------
+\section{Cadre du projet}
+
+\bloc{Contexte.}Le jeu \emph{Photogranulometry} (Plante St-Cyr et al., FRDR, DOI 10.20383/103.01316) associe des photographies de sols de la région de Montréal à leurs courbes granulométriques, obtenues par tamisage mécanique (14 tamis, de 80\,\textmu m à 80\,mm, selon l'article de données~\cite{plante}). Il comporte 12\,714 images pour 321 échantillons, prises à l'état humide et à l'état sec, en $8192\times5464$ pixels. Plusieurs images d'un même échantillon partagent donc la même courbe de référence.
+
+\bloc{Objectif général.}Comprendre et documenter ce jeu, établir un benchmark reproductible des approches de photogranulométrie, analyser les causes d'échec des modèles existants, puis concevoir et évaluer un modèle de prédiction de courbe granulométrique à partir d'images.
+
+\bloc{Rôle de ce document.}Il définit la méthode de travail (sections~2 et~3), fournit un catalogue de pistes de recherche (section~4) et décrit comment en tirer une question centrale (section~5). Il ne fixe aucun choix méthodologique à l'avance : métriques, représentation de la cible et architectures sont des \emph{résultats} des phases de revue (phases~4 et~5) et sont consignés dans le registre de la section~7.
+
+\bloc{Contrainte de stockage.}Selon l'article de données~\cite{plante}, le jeu dépasse 425\,Go ; l'objectif est de le ramener sous 200\,Go sans supprimer de photographies. La taille réelle est à mesurer en phase~1.
+
+%--------------------------------------------------------------
+\section{Principes directeurs}
+
+\begin{itemize}
+  \item \textbf{Éviter la fuite de données.} La fuite est une cause majeure d'irreproductibilité dans les travaux d'apprentissage automatique appliqués aux sciences ; une taxonomie en huit types et des fiches de modèle (\emph{model info sheets}) existent~\cite{kapoor}, prolongées par la liste de contrôle REFORMS~\cite{reforms}. Ici, toutes les images d'un même échantillon physique restent dans la même partition, le jeu de test est figé, et aucune décision de conception n'est prise avec lui.
+  \item \textbf{Ne pas confondre images et échantillons.} Les 12\,714 images ne sont pas 12\,714 échantillons indépendants : le nombre d'images donne une impression trompeuse de la quantité d'information disponible.
+  \item \textbf{Mesurer la variance.} Une comparaison fiable tient compte de la variance due au découpage des données, à l'initialisation et aux hyperparamètres~\cite{bouthillier}.
+  \item \textbf{Documenter le jeu comme un résultat de recherche.} Fiches de données (\emph{datasheets})~\cite{gebru} et métadonnées lisibles par machine (Croissant)~\cite{croissant}.
+  \item \textbf{Conduire les revues de littérature de façon systématique et traçable}, pour l'informatique selon SEGRESS~\cite{segress}.
+  \item \textbf{Écrire le protocole avant les expériences}, versionner code, configurations et résultats, consigner aussi les résultats négatifs.
+  \item \textbf{Vérifier la nouveauté.} Une question peut être intéressante sans être nouvelle : la nouveauté s'établit par la littérature et par la comparaison avec les méthodes existantes.
+\end{itemize}
+
+%--------------------------------------------------------------
+\section{Déroulement : dix phases}
+
+Chaque phase suit le même format. Aucune durée n'est imposée (section~6).
+
+\phase{1}{Acquisition, stockage et organisation}
+\champ{Objectif} Disposer d'une copie complète, vérifiée et reproductible du jeu.
+\champ{Tâches} Télécharger via Globus. Contrôler l'intégrité (sommes de contrôle) et établir un manifeste (fichier, taille, empreinte). Conserver la copie brute en lecture seule, séparée des données dérivées (arborescence brut / intermédiaire / traité). Sauvegarder sur un second support. Tenir un journal de provenance (source, DOI, date, version) et noter les versions des outils. Mesurer le volume réel. Analyser les noms de fichiers (numéro d'échantillon, type, nombre de plateaux, numéro d'image, état humide ou sec) pour produire le manifeste et vérifier la correspondance avec le fichier Excel des courbes et les images de calibration. Compter les images réellement présentes : l'article annonce 12\,714 images, mais son résumé français indique 12\,745.
+\champ{Livrables} Données organisées, manifeste, script de téléchargement et de vérification.
+\champ{Sortie} Toute donnée dérivée se régénère depuis le brut par script ; l'intégrité est vérifiée.
+
+\phase{2}{Inventaire des usages possibles}
+\champ{Objectif} Cartographier de façon exhaustive ce que le jeu permet de faire.
+\champ{Tâches} Parcourir le catalogue de la section~4 et le compléter par la littérature sur des jeux voisins. Construire une matrice usage $\times$ données requises (images, courbes, métadonnées, états humide/sec). Évaluer faisabilité, intérêt scientifique et risques.
+\champ{Livrables} Matrice des usages et priorisation justifiée.
+\champ{Sortie} Périmètre de l'étude décidé et consigné.
+
+\phase{3}{Compréhension et documentation du jeu}
+\champ{Objectif} Connaître le jeu en profondeur et le documenter à un niveau publiable (axe~1).
+\champ{Tâches} Analyse exploratoire (images par échantillon, couverture granulométrique, états, métadonnées, valeurs manquantes). S'appuyer sur la description déjà fournie par les auteurs (banc d'essai, calibration par marqueurs ArUco, trois types d'échantillons : en vrac, artificiels, à la cuillère fendue) plutôt que de la refaire, et concentrer l'effort sur ce qu'elle ne couvre pas : contenu réel du fichier Excel (la page du dépôt mentionne aussi un essai à l'hydromètre, que l'article ne décrit pas), images manquantes à l'état humide ou sec, évolution du protocole au fil de la collecte (10 puis 5 photos par plateau), regroupement des plateaux d'un même échantillon. Audit de qualité : cohérence image/courbe, doublons, flou, exposition. Rédiger une fiche de données et des métadonnées lisibles par machine. Vérifier la licence et les conditions de redistribution \emph{avant} toute publication sur Kaggle ; si c'est permis, publier en citant la source et son DOI. Contacter les auteurs en cas d'anomalie.
+\champ{Livrables} Fiche de données, rapport d'audit, version Kaggle (si autorisée).
+\champ{Sortie} Questions D1--D10 traitées. \emph{Résultat publiable : note sur le jeu de données.}
+
+\phase{4}{Revue systématique des approches existantes}
+\champ{Objectif} Recenser les approches de photogranulométrie de façon traçable et vérifier, pour chaque question du catalogue, ce qui existe déjà.
+\champ{Tâches} Rédiger le protocole de revue avant la recherche : questions, sources et requêtes, critères d'inclusion et d'exclusion. Extraire dans une grille : tâche, données et séparation, cible, modèle, perte, métriques, protocole de validation, résultats, disponibilité du code, risque de fuite. Tenir un diagramme de flux de sélection. Amorcer la grille avec les travaux cités par les auteurs du jeu~\cite{plante} (SediNet, GRAINet, SandSnap, Duhaime et al.\ 2021, thèse de Manashti 2022, Soranzo et al.\ 2025) ; cette liste ne remplace pas la recherche systématique. Poursuivre une veille continue.
+\champ{Livrables} Protocole, table d'extraction, carte des approches, état de l'art par axe.
+\champ{Sortie} La liste des approches à reproduire découle de la revue.
+
+\phase{5}{Métriques et protocole de comparaison}
+\champ{Objectif} Choisir, sur preuves, la manière de comparer les architectures (axe~10).
+\champ{Tâches} Extraire les métriques et protocoles des études retenues ; recenser d'autres familles de mesures pour comparer des courbes ou distributions et pour les grandeurs géotechniques ; analyser leurs propriétés (échelle, sensibilité aux fines, lecture physique) ; tester leur accord sur de vraies prédictions. Définir les découpages (par échantillon), répétitions et tests statistiques. Rédiger le protocole avant toute expérience.
+\champ{Livrables} Tableau comparatif des métriques, protocole écrit et versionné.
+\champ{Sortie} Protocole validé et figé avant la phase~6.
+
+\phase{6}{Implémentation et comparaison des approches}
+\champ{Objectif} Obtenir un benchmark fiable et reproductible (axes~3 et~10).
+\champ{Tâches} Reproduire chaque approche fidèlement d'abord (si possible, retrouver les résultats publiés sur le jeu d'origine), puis l'évaluer sous le protocole commun. Répéter avec plusieurs graines et découpages pour estimer la variance. Donner le même budget de réglage à chaque méthode. Rapporter intervalles de confiance et tests. Renseigner la fiche de modèle et la liste REFORMS.
+\champ{Livrables} Code, configurations, résultats bruts, tableaux de comparaison.
+\champ{Sortie} \emph{Résultat publiable : article de benchmark.}
+
+\phase{7}{Analyse approfondie des échecs}
+\champ{Objectif} Comprendre pourquoi les modèles existants échouent (axes~1, 9 et~11).
+\champ{Tâches} Analyser les erreurs par échantillon et par tranche (granulométrie, état, résolution, qualité d'image). Examiner visuellement meilleurs et pires cas. Séparer les causes possibles : étiquette, ambiguïté de l'image, représentation de la cible, perte, modèle, protocole. Formuler des hypothèses falsifiables et les tester par des expériences contrôlées. Estimer le bruit irréductible. Ne jamais utiliser le test pour concevoir.
+\champ{Livrables} Catalogue des modes d'échec avec preuves.
+\champ{Sortie} Chaque mode d'échec est classé : cause confirmée, hypothèse, ou non élucidé.
+
+\phase{8}{Conception du modèle}
+\champ{Objectif} Dériver des idées de modèle des échecs observés (axes~2 à~5 et~8 à~9).
+\champ{Tâches} Pour chaque mode d'échec, rassembler des pistes issues de la littérature et du catalogue. Transformer chaque idée en hypothèse, prédiction mesurable et expérience minimale (fiche de la section~5). Tenir un registre priorisé (gain attendu, coût, risque, nouveauté). Tester une idée à la fois pour pouvoir attribuer les gains.
+\champ{Livrables} Registre d'hypothèses et plan d'expériences.
+\champ{Sortie} Plan ordonné validé.
+
+\phase{9}{Implémentation, analyse et correction}
+\champ{Objectif} Itérer jusqu'à un modèle dont les gains sont démontrés.
+\champ{Tâches} Boucle : version minimale, test sur validation, ablation, analyse d'erreurs, correction. Comparer toujours au meilleur modèle antérieur sous les mêmes conditions. Consigner les échecs. Limiter les accès au jeu de test.
+\champ{Livrables} Modèle, ablations, journal d'expériences.
+\champ{Sortie} Critère d'arrêt atteint : gain supérieur à la variance, ou plateau documenté.
+
+\phase{10}{Consolidation et itération}
+\champ{Objectif} Établir la portée des résultats et rédiger (axes~6 à~9 et~12 à~13).
+\champ{Tâches} Généralisation (autres jeux, conditions), robustesse, courbe d'apprentissage, calibration et incertitude. Décider d'une nouvelle itération selon les résultats. Remplir la liste REFORMS, publier code, configurations et poids. Rédiger, faire relire par une personne extérieure, choisir la cible de publication.
+\champ{Livrables} Manuscrit et dépôt public.
+\champ{Sortie} Limites énoncées. \emph{Résultat final : article complet.}
+
+%--------------------------------------------------------------
+\section{Catalogue de questions de recherche}
+
+Ce catalogue regroupe treize axes de questions possibles, de la préparation des images à la validité physique des prédictions. Il constitue une réserve de pistes, non un programme à traiter intégralement. Chaque question reste à valider par la revue de littérature (phase~4), car rien ne permet de présumer qu'elle demeure non résolue. La colonne \emph{Statut} sert à noter, au fil du travail, si la question est déjà traitée, retenue ou écartée.
+
+\subsection*{Axe 1 --- Compréhension et qualité du jeu de données}
+Avant d'améliorer un modèle, il faut savoir ce que les données lui permettent réellement d'apprendre. L'article de données~\cite{plante} documente déjà une partie des questions D3, D4, D9 et D10 (protocole photographique, états humide et sec, calibration, noms de fichiers) ; il s'agit de les vérifier sur les données, non de les redécouvrir.
+\begin{qtable}
+D1 & Quelle est la diversité réelle des sols représentés dans le jeu de données ? & \\
+D2 & Les 12\,714 images apportent-elles toutes des informations nouvelles, ou certaines sont-elles très redondantes ? & \\
+D3 & Quelle est la variabilité des photographies d'un même échantillon ? & \\
+D4 & Les images humides et sèches contiennent-elles des informations complémentaires ? & \\
+D5 & La qualité visuelle des images est-elle corrélée aux erreurs de prédiction ? & \\
+D6 & Certaines classes de sols ou certaines plages granulométriques sont-elles sous-représentées ? & \\
+D7 & Les mesures de laboratoire sont-elles suffisamment précises et cohérentes pour servir de références ? & \\
+D8 & Quelle part des erreurs observées provient des images, des mesures de référence ou du modèle ? & \\
+D9 & Les métadonnées de prise de vue contiennent-elles des informations utiles à la prédiction ? & \\
+D10 & Le protocole photographique introduit-il des biais systématiques dans le jeu de données ? & \\
+\end{qtable}
+
+\subsection*{Axe 2 --- Réduction de résolution et compression des images}
+Cet axe est pertinent pour l'objectif de réduire le volume du jeu sans supprimer de photographies. Il permet de formuler un objectif quantitatif : trouver le meilleur compromis entre volume de stockage, coût de calcul et erreur granulométrique.
+\begin{qtable}
+R1 & Jusqu'à quelle résolution peut-on réduire les images sans dégrader significativement les prédictions ? & \\
+R2 & La compression JPEG conserve-t-elle suffisamment les contours et les textures des grains ? & \\
+R3 & À qualité visuelle comparable, quel format offre le meilleur compromis entre taille et précision ? & \\
+R4 & La résolution optimale est-elle différente pour les sols grossiers et les sols fins ? & \\
+R5 & Le redimensionnement global est-il moins performant que le découpage en tuiles ? & \\
+R6 & Quelle taille de tuile (256, 512, 1024 pixels ou davantage) est la plus adaptée ? & \\
+R7 & Le chevauchement entre tuiles améliore-t-il les prédictions en préservant les grains situés aux frontières ? & \\
+R8 & Une stratégie multi-échelle combinant image globale et tuiles locales est-elle supérieure à une seule résolution ? & \\
+R9 & Peut-on réduire le volume des données de 50\,\%, 70\,\% ou 80\,\% tout en maintenant une précision acceptable ? & \\
+R10 & La réduction de résolution modifie-t-elle davantage la prédiction de la fraction fine que celle de la fraction grossière ? & \\
+\end{qtable}
+
+\subsection*{Axe 3 --- Architectures de vision par ordinateur}
+La question est de déterminer quelle représentation visuelle permet le mieux de prédire une distribution granulométrique. Une comparaison rigoureuse exige les mêmes échantillons d'entraînement et de test, des procédures d'optimisation comparables et les mêmes métriques.
+\begin{qtable}
+A1 & Un CNN classique peut-il prédire la courbe granulométrique avec une précision satisfaisante ? & \\
+A2 & Un Vision Transformer préentraîné est-il plus performant qu'un CNN entraîné sur le même jeu de données ? & \\
+A3 & DINOv2 extrait-il des caractéristiques pertinentes pour la granulométrie, alors qu'il n'a pas été préentraîné spécifiquement sur cette tâche ? & \\
+A4 & L'apprentissage par transfert est-il préférable à un entraînement depuis zéro ? & \\
+A5 & Le fine-tuning de DINOv2 apporte-t-il un gain suffisant pour justifier son coût de calcul ? & \\
+A6 & Une architecture hybride CNN--Transformer combine-t-elle efficacement les détails locaux et le contexte global ? & \\
+A7 & L'architecture DINOv2 + ABMIL est-elle plus efficace qu'une régression directement appliquée aux caractéristiques d'une image entière ? & \\
+A8 & Un modèle fondé sur la segmentation des grains est-il plus précis qu'un modèle apprenant directement à prédire la courbe ? & \\
+A9 & La fusion de plusieurs architectures apporte-t-elle une amélioration significative par rapport au meilleur modèle individuel ? & \\
+A10 & Les performances supplémentaires des modèles les plus complexes justifient-elles leur consommation de mémoire, de temps et de calcul ? & \\
+\end{qtable}
+
+\subsection*{Axe 4 --- Représentation des grains et mécanismes d'attention}
+Cet axe cherche à comprendre comment le modèle exploite les différentes régions d'une photographie. Les cartes d'attention aident à interpréter les prédictions, mais ne constituent pas à elles seules une preuve d'explication causale.
+\begin{qtable}
+V1 & Le modèle apprend-il réellement les caractéristiques des grains, ou exploite-t-il des indices indirects, comme le fond ou l'éclairage ? & \\
+V2 & Les caractéristiques de forme sont-elles plus informatives que les caractéristiques de texture ? & \\
+V3 & L'attention permet-elle d'identifier les zones les plus utiles à la prédiction granulométrique ? & \\
+V4 & Les tuiles contenant les grains les plus grossiers sont-elles plus informatives que celles contenant surtout des particules fines ? & \\
+V5 & La fusion des caractéristiques de plusieurs tuiles améliore-t-elle la prédiction par rapport à une moyenne simple ? & \\
+V6 & Le modèle bénéficie-t-il de l'ordre spatial des tuiles ou seulement de leur contenu visuel ? & \\
+V7 & La segmentation explicite des particules améliore-t-elle l'apprentissage des caractéristiques visuelles ? & \\
+V8 & Peut-on combiner les caractéristiques apprises par le réseau avec des mesures géométriques explicites des grains ? & \\
+\end{qtable}
+
+\subsection*{Axe 5 --- Formulation mathématique de la prédiction}
+Axe reliant apprentissage profond, analyse numérique, optimisation et modélisation. La cible n'est pas une classe unique mais une courbe de pourcentages passants aux différentes ouvertures de tamis. Si $P_i$ désigne le pourcentage passant au tamis d'ouverture $d_i$, avec $d_1<\cdots<d_N$, la courbe doit vérifier
+\[
+0\le P_i\le 100,\qquad P_1\le P_2\le\cdots\le P_N,
+\]
+puisqu'un pourcentage passant ne peut pas diminuer lorsque l'ouverture augmente. Ces contraintes peuvent être intégrées à la représentation de sortie ou à la fonction de perte.
+\begin{qtable}
+M1 & Faut-il prédire directement les pourcentages passants ou les fractions massiques entre tamis successifs ? & \\
+M2 & Une fonction de perte classique, comme l'erreur quadratique moyenne, est-elle adaptée à la courbe granulométrique ? & \\
+M3 & Une fonction de perte pondérée améliore-t-elle les prédictions dans les plages granulométriques les plus importantes ? & \\
+M4 & Comment garantir mathématiquement que les pourcentages prédits restent entre 0 et 100\,\% ? & \\
+M5 & Comment imposer la monotonie de la courbe granulométrique ? & \\
+M6 & La prédiction des fractions entre tamis, suivie d'une reconstruction cumulative, est-elle plus stable que la prédiction directe de chaque pourcentage passant ? & \\
+M7 & Peut-on intégrer des contraintes physiques dans la fonction de perte plutôt que dans l'architecture ? & \\
+M8 & Une formulation probabiliste permet-elle de mieux représenter la diversité des courbes possibles pour une image donnée ? & \\
+M9 & Comment définir une fonction objectif qui équilibre l'erreur moyenne, les erreurs sur les fractions fines et la cohérence physique ? & \\
+M10 & Peut-on construire une borne théorique ou empirique sur l'erreur de prédiction en fonction de la qualité de l'image et de la variabilité des échantillons ? & \\
+\end{qtable}
+
+\subsection*{Axe 6 --- Généralisation à de nouveaux sols}
+Un modèle peut réussir sur des échantillons qu'il connaît indirectement et échouer sur de nouveaux sols. Les questions G2 et G3 exigent des données locales indépendantes ; le jeu seul ne permet pas d'y répondre définitivement.
+\begin{qtable}
+G1 & Les performances restent-elles bonnes lorsque tous les échantillons de test sont absents de l'entraînement ? & \\
+G2 & Un modèle entraîné sur des sols canadiens généralise-t-il à des sols provenant d'autres régions ? & \\
+G3 & Les caractéristiques visuelles des sols latéritiques béninois diffèrent-elles suffisamment pour nécessiter une adaptation ? & \\
+G4 & Combien d'échantillons locaux sont nécessaires pour adapter un modèle préentraîné ? & \\
+G5 & Le fine-tuning avec peu de données locales est-il plus efficace que l'entraînement complet ? & \\
+G6 & Les méthodes d'adaptation de domaine permettent-elles de réduire l'écart de performance entre régions ? & \\
+G7 & Un modèle reste-t-il fiable sur des sols dont les caractéristiques sont éloignées de celles de son jeu d'entraînement ? & \\
+G8 & Peut-on prédire la performance attendue d'un modèle sur une nouvelle région à partir des différences entre les distributions d'images ? & \\
+G9 & Un modèle entraîné sur des images sèches peut-il fonctionner sur des images humides, et inversement ? & \\
+G10 & Une stratégie d'apprentissage actif permet-elle de sélectionner les nouveaux échantillons de laboratoire les plus utiles pour améliorer le modèle ? & \\
+\end{qtable}
+
+\subsection*{Axe 7 --- Robustesse aux conditions de prise de vue}
+Cet axe s'intéresse à la stabilité du modèle lorsque les conditions réelles changent. La taille apparente d'un grain dépend aussi de l'échelle de l'image : une méthode robuste doit distinguer autant que possible les variations dues au sol de celles dues à l'acquisition.
+\begin{qtable}
+B1 & Quelle est l'influence de l'éclairage sur les prédictions ? & \\
+B2 & La variation de la distance caméra--sol affecte-t-elle fortement la précision ? & \\
+B3 & Comment le modèle réagit-il aux changements de balance des blancs, de contraste et de netteté ? & \\
+B4 & Les augmentations de données permettent-elles de réduire la sensibilité aux variations visuelles ? & \\
+B5 & Les images humides nécessitent-elles un modèle spécifique, ou un modèle commun peut-il apprendre les deux états ? & \\
+B6 & Une calibration géométrique est-elle nécessaire pour obtenir des résultats fiables avec différents appareils ? & \\
+B7 & Le modèle reste-t-il performant sur des images prises avec un smartphone différent de celui utilisé lors de l'entraînement ? & \\
+B8 & Comment détecter les images trop floues ou mal exposées avant la prédiction ? & \\
+B9 & Les techniques de normalisation des couleurs améliorent-elles la robustesse ou suppriment-elles des informations utiles ? & \\
+B10 & Quel niveau de variation des conditions photographiques peut-on tolérer avant que l'erreur dépasse un seuil défini ? & \\
+\end{qtable}
+
+\subsection*{Axe 8 --- Quantité de données et efficacité de l'apprentissage}
+Le jeu comprend beaucoup d'images mais un nombre bien plus limité d'échantillons indépendants. Un protocole avec plusieurs tailles de sous-ensembles permet de tracer une courbe d'apprentissage et de répondre à une question pratique : faut-il investir dans la collecte de données ou dans l'amélioration du modèle ?
+\begin{qtable}
+E1 & Quelle est la quantité minimale d'échantillons nécessaire pour obtenir des performances satisfaisantes ? & \\
+E2 & Les performances augmentent-elles proportionnellement au nombre d'images ou atteignent-elles un plateau ? & \\
+E3 & Est-il préférable d'ajouter de nouveaux échantillons de sols ou de nouvelles photographies des sols déjà connus ? & \\
+E4 & Un modèle préentraîné permet-il d'obtenir de bons résultats avec peu de données étiquetées ? & \\
+E5 & L'apprentissage semi-supervisé peut-il exploiter des images supplémentaires sans courbe granulométrique associée ? & \\
+E6 & Des données synthétiques réalistes peuvent-elles améliorer la prédiction sur des sols réels ? & \\
+E7 & L'apprentissage actif peut-il réduire le nombre d'analyses de laboratoire nécessaires ? & \\
+E8 & Comment les performances évoluent-elles lorsque l'on entraîne le modèle avec 10\,\%, 25\,\%, 50\,\%, 75\,\% et 100\,\% des échantillons disponibles ? & \\
+E9 & Une sélection intelligente des échantillons est-elle plus efficace qu'un tirage aléatoire ? & \\
+E10 & Quelle quantité de données faut-il pour améliorer la prédiction des fractions granulométriques les plus rares ? & \\
+\end{qtable}
+
+\subsection*{Axe 9 --- Incertitude, fiabilité et détection des erreurs}
+En ingénierie, une prédiction précise en moyenne ne suffit pas : il faut aussi savoir quand le modèle risque de se tromper. Une piste consiste à comparer les erreurs de prédiction à la largeur des intervalles de confiance ou de prédiction, pour vérifier que l'incertitude annoncée reflète les risques réels.
+\begin{qtable}
+U1 & Peut-on associer un intervalle d'incertitude à chaque pourcentage passant prédit ? & \\
+U2 & Les estimations d'incertitude correspondent-elles réellement aux erreurs observées ? & \\
+U3 & Les ensembles de modèles améliorent-ils la fiabilité des prédictions ? & \\
+U4 & Le modèle peut-il détecter un sol qui ne ressemble pas aux données d'entraînement ? & \\
+U5 & Les images de mauvaise qualité sont-elles associées à une incertitude plus élevée ? & \\
+U6 & Peut-on détecter les courbes granulométriques anormales avant leur utilisation ? & \\
+U7 & Comment choisir un seuil à partir duquel le modèle doit recommander une analyse de laboratoire ? & \\
+U8 & Peut-on distinguer l'incertitude liée aux données de celle liée au modèle ? & \\
+U9 & Les incertitudes sont-elles plus importantes pour certaines ouvertures de tamis que pour d'autres ? & \\
+U10 & Un modèle moins précis mais mieux calibré en incertitude est-il plus utile qu'un modèle légèrement plus précis mais excessivement confiant ? & \\
+\end{qtable}
+
+\subsection*{Axe 10 --- Métriques d'évaluation et protocoles expérimentaux}
+Une amélioration apparente peut provenir d'un mauvais découpage des données ou d'une métrique mal choisie : cet axe concerne la validité des conclusions. Toutes les images associées à un même échantillon physique doivent rester dans la même partition, et les comparaisons tiennent compte du fait que plusieurs photographies peuvent partager exactement la même courbe de référence.
+\begin{qtable}
+P1 & Quelle métrique décrit le mieux l'erreur d'une courbe granulométrique complète ? & \\
+P2 & La MAE, la RMSE et les erreurs intégrées sur la courbe conduisent-elles aux mêmes classements de modèles ? & \\
+P3 & Les métriques existantes accordent-elles suffisamment d'importance aux erreurs sur les fractions fines ? & \\
+P4 & Quel découpage des données donne une estimation réaliste de la généralisation à de nouveaux sols ? & \\
+P5 & Les différences de performance entre deux modèles sont-elles statistiquement significatives ? & \\
+P6 & Les performances restent-elles stables lorsque la séparation entraînement--test change ? & \\
+P7 & Les résultats sont-ils reproductibles avec plusieurs graines aléatoires ? & \\
+P8 & Quelle est la sensibilité des performances aux hyperparamètres ? & \\
+P9 & Les résultats sont-ils comparables aux méthodes classiques de prédiction granulométrique ? & \\
+P10 & Comment séparer l'amélioration réelle du modèle de celle due au prétraitement des images ? & \\
+\end{qtable}
+
+\subsection*{Axe 11 --- Relation entre image et réalité physique}
+Axe sans doute le plus fondamental sur le plan scientifique : la photographie ne mesure pas directement la distribution massique, elle fournit une projection visuelle d'un matériau tridimensionnel. Même un réseau très performant ne peut pas récupérer avec certitude une information non identifiable à partir de l'image ; il faut alors déterminer quelles hypothèses ou mesures supplémentaires sont nécessaires.
+\begin{qtable}
+F1 & Dans quelles conditions une image contient-elle suffisamment d'information pour identifier une courbe granulométrique ? & \\
+F2 & Deux sols ayant des courbes granulométriques différentes peuvent-ils produire des images presque indiscernables ? & \\
+F3 & Quel est l'effet de la superposition des particules sur la prédiction ? & \\
+F4 & Les particules cachées ou enfouies créent-elles un biais systématique ? & \\
+F5 & La forme des grains permet-elle de mieux estimer la distribution massique que leur taille apparente seule ? & \\
+F6 & Peut-on exploiter la densité des particules ou leur composition minéralogique pour améliorer les prédictions ? & \\
+F7 & Comment les fines particules, difficilement visibles sur les photographies, influencent-elles les erreurs ? & \\
+F8 & Une représentation 3D apporte-t-elle des informations réellement utiles par rapport à une image 2D ? & \\
+F9 & Peut-on combiner les informations d'une image avec la masse totale de l'échantillon ou d'autres mesures physiques ? & \\
+F10 & Existe-t-il une limite intrinsèque à la précision d'une prédiction fondée uniquement sur une photographie ? & \\
+\end{qtable}
+
+\subsection*{Axe 12 --- Optimisation du stockage et du coût de calcul}
+Cet axe porte sur le compromis entre précision, ressources informatiques et facilité de déploiement. Il peut donner lieu à une étude expérimentale rigoureuse : à précision comparable, quel pipeline est le moins coûteux en temps, mémoire et stockage ?
+\begin{qtable}
+C1 & Quel compromis entre résolution, compression et précision est le plus intéressant ? & \\
+C2 & Est-il plus efficace d'entraîner directement un modèle ou de pré-calculer les caractéristiques avec DINOv2 ? & \\
+C3 & Combien de temps faut-il pour traiter chaque échantillon selon la stratégie retenue ? & \\
+C4 & Quelle quantité de mémoire GPU est nécessaire selon la taille des tuiles et le nombre de tuiles par image ? & \\
+C5 & La précision peut-elle être conservée avec un modèle plus léger ? & \\
+C6 & La quantification du modèle réduit-elle suffisamment le coût d'inférence sans dégrader sensiblement les résultats ? & \\
+C7 & Le calcul des caractéristiques peut-il être réparti entre plusieurs sessions GPU sans compromettre la reproductibilité ? & \\
+C8 & Quelle est la stratégie de cache la plus efficace pour éviter de relire continuellement les images depuis un stockage distant ? & \\
+C9 & Quel est le coût de traitement d'un nouvel échantillon, depuis la photographie jusqu'à la courbe prédite ? & \\
+C10 & Peut-on concevoir une chaîne complète fonctionnant sur un ordinateur modeste ou un appareil mobile ? & \\
+\end{qtable}
+
+\subsection*{Axe 13 --- Déploiement et utilisation pratique}
+Ces questions concernent la transformation du modèle en outil exploitable. Elles sont utiles si l'objectif final comprend une application concrète, et ne remplacent pas la validation scientifique du modèle.
+\begin{qtable}
+I1 & Peut-on développer une application qui prédit une courbe granulométrique à partir d'une photographie prise sur le terrain ? & \\
+I2 & Quelles contraintes faut-il imposer au protocole de prise de vue pour garantir des résultats fiables ? & \\
+I3 & Le modèle peut-il vérifier automatiquement qu'une photographie respecte les conditions nécessaires ? & \\
+I4 & Peut-on associer la prédiction à une estimation de confiance compréhensible par un technicien ? & \\
+I5 & Quel temps de réponse est acceptable pour une utilisation sur le terrain ? & \\
+I6 & Comment intégrer les résultats dans un rapport géotechnique sans présenter une estimation comme une mesure certifiée ? & \\
+I7 & Le modèle peut-il être recalibré au fil de nouvelles analyses de laboratoire ? & \\
+I8 & Une application fonctionnant hors connexion est-elle envisageable ? & \\
+I9 & Dans quelles conditions le système peut-il réellement réduire le nombre d'analyses classiques nécessaires ? & \\
+I10 & Quel protocole de validation serait nécessaire avant une utilisation dans des décisions de construction ? & \\
+\end{qtable}
+
+%--------------------------------------------------------------
+\section{Choisir la question centrale}
+
+Le choix ne repose pas sur la nouveauté apparente des méthodes. Une question retenue combine une lacune scientifique identifiable, une hypothèse testable et des moyens réalistes de la vérifier. L'objectif est de sélectionner une question centrale, quelques questions secondaires et des hypothèses testables expérimentalement.
+
+\textbf{Fiche d'évaluation d'une question.} Pour chaque question envisagée, la fiche précise :
+\begin{enumerate}
+  \item ce qui a déjà été réalisé, notamment sur le jeu lui-même (revue, phase~4) ;
+  \item les limites explicitement reconnues par les auteurs des travaux existants ;
+  \item les résultats de référence à reproduire ;
+  \item les expériences qui démontreraient une amélioration réelle (hypothèse, prédiction mesurable, critère de réfutation) ;
+  \item les données et ressources nécessaires, ainsi que les risques.
+\end{enumerate}
+
+\textbf{Pistes candidates} (ordre non significatif). Les directions suivantes, tirées du catalogue, sont à départager par la revue et la fiche ci-dessus.
+\begin{itemize}
+  \item \textbf{Résolution et conservation de l'information.} Jusqu'à quel niveau réduire résolution et volume sans dégrader la prédiction ? Données publiques ; expériences de compression, redimensionnement et tuiles. Limite : une simple comparaison de tailles et de modèles est insuffisante sans analyse des erreurs par classe granulométrique. (Axes~2, 12.)
+  \item \textbf{Modélisation mathématique de la courbe.} Les contraintes physiques imposées à la sortie améliorent-elles précision et cohérence ? Régression directe, prédiction de fractions et reconstruction cumulative. (Axe~5.)
+  \item \textbf{Apprentissage multi-échelle.} La combinaison d'informations globales et de détails locaux améliore-t-elle la prédiction par rapport à une résolution unique ? (Axes~2, 3, 4.)
+  \item \textbf{Généralisation aux sols béninois.} Adapter un modèle entraîné sur des sols canadiens à des sols béninois avec peu d'échantillons mesurés. Exige de nouvelles données locales et des mesures de référence de qualité. (Axe~6.)
+  \item \textbf{Fiabilité et incertitude.} Identifier les situations où une prédiction n'est pas assez fiable : estimation d'incertitude, détection hors distribution, seuils de rejet. (Axe~9.)
+\end{itemize}
+
+%--------------------------------------------------------------
+\section{Tenir dans la durée}
+
+\begin{itemize}
+  \item \textbf{Résultats publiables intermédiaires} : note sur le jeu (après la phase~3), article de benchmark (après la phase~6), article complet (après la phase~10). Chaque étape a une valeur propre ; un retard n'annule pas le travail accompli.
+  \item Journal de recherche court et quotidien : ce qui a été fait, observé, décidé.
+  \item Revue hebdomadaire d'une demi-heure : avancement, décisions à prendre, blocages.
+  \item Durée maximale par phase à fixer ; en cas de dépassement, réduire le périmètre plutôt que prolonger.
+  \item Tout versionner (code, configurations, protocole, résultats) et sauvegarder.
+\end{itemize}
+
+\subsection*{Dépendances entre phases}
+\par\smallskip
+\begin{tabularx}{\textwidth}{@{}l X X@{}}
+\toprule
+\textbf{Phase} & \textbf{Dépend de} & \textbf{Résultat intermédiaire}\\
+\midrule
+1 & --- & Données vérifiées\\
+2 & 1 & Périmètre\\
+3 & 1 & Note sur le jeu, version Kaggle\\
+4 & 2 & État de l'art\\
+5 & 4 & Protocole figé\\
+6 & 3, 5 & Article de benchmark\\
+7 & 6 & Catalogue d'échecs\\
+8 & 4, 7 & Plan d'expériences\\
+9 & 8 & Modèle démontré\\
+10 & 9 & Article complet\\
+\bottomrule
+\end{tabularx}
+
+Les phases 2 à 4 peuvent se chevaucher ; la revue (phase~4) se poursuit en tâche de fond jusqu'à la rédaction.
+
+%--------------------------------------------------------------
+\section{Registre des décisions ouvertes}
+
+\par\smallskip
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{6.2cm} X r@{}}
+\toprule
+\textbf{Décision} & \textbf{S'appuie sur} & \textbf{Phase}\\
+\midrule
+Périmètre : tâches visées, jeu seul ou plusieurs jeux & Matrice des usages & 2\\
+Publication d'une version sur Kaggle & Licence et conditions du dépôt FRDR & 3\\
+Approches à reproduire & Revue systématique & 4\\
+Métriques et protocole de comparaison & Revue, analyse des propriétés & 5\\
+Question centrale et questions secondaires & Fiches d'évaluation (section~5) & 4--8\\
+Représentation de la cible, architecture, perte & Analyse des échecs & 8\\
+Critères d'arrêt des itérations & Variance mesurée & 9\\
+Revue ou conférence visée & Résultats obtenus & 10\\
+Calcul disponible (matériel, budget) & Ressources & 1\\
+\bottomrule
+\end{tabularx}
+
+%--------------------------------------------------------------
+\begingroup\small
+\begin{thebibliography}{9}
+\bibitem{kapoor} S.~Kapoor, A.~Narayanan. \emph{Leakage and the Reproducibility Crisis in Machine-Learning-Based Science}. arXiv:2207.07048 (publié dans \emph{Patterns}, 2023).
+\bibitem{reforms} S.~Kapoor et al. \emph{REFORMS: Reporting Standards for Machine Learning Based Science}. arXiv:2308.07832.
+\bibitem{bouthillier} X.~Bouthillier et al. \emph{Accounting for Variance in Machine Learning Benchmarks}. MLSys 2021, arXiv:2103.03098.
+\bibitem{gebru} T.~Gebru et al. \emph{Datasheets for Datasets}. 2021.
+\bibitem{croissant} \emph{Croissant: A Metadata Format for ML-Ready Datasets}. arXiv:2403.19546.
+\bibitem{segress} B.~Kitchenham, L.~Madeyski, D.~Budgen. \emph{SEGRESS: Software Engineering Guidelines for REporting Secondary Studies}. IEEE Trans.\ Softw.\ Eng.\ 49(3):1273--1298, 2023.
+\bibitem{plante} T.~Plante St-Cyr, F.~Duhaime, J.-S.~Dubé, S.~Grenier. \emph{Dataset of soil images with corresponding particle size distributions for photogranulometry}. GeoManitoba 2025, arXiv:2506.17469. Jeu de données Photogranulometry, FRDR, DOI 10.20383/103.01316.
+\end{thebibliography}
+\endgroup
+
+\end{document}
